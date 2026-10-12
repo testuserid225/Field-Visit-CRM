@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 // Helper to retrieve token strictly from sessionStorage (tab & browser session scoped)
 export const getAuthToken = () => {
