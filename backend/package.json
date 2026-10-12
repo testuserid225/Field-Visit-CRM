@@ -1,0 +1,32 @@
+{
+  "name": "field-visit-crm-backend",
+  "version": "1.0.0",
+  "description": "Node.js and Express REST API with MongoDB for Field Visit CRM",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.8.0",
+    "morgan": "^1.10.0",
+    "nodemailer": "^10.0.15",
+    "otplib": "^13.5.0",
+    "qrcode": "^1.5.4"
+  },
+  "keywords": [
+    "crm",
+    "field-visit",
+    "express",
+    "mongodb",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "ISC"
+}
