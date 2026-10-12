@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
 
-import { connectDB } from './config/db.js';
+import { connectDB, sanitizeMongoURI } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import visitRoutes from './routes/visitRoutes.js';
 import clientRoutes from './routes/clientRoutes.js';
@@ -86,7 +86,7 @@ app.use(async (req, res, next) => {
       success: false,
       message: `Database Connection Failed: ${dbErr.message}`,
       errorType: 'DATABASE_CONNECTION_ERROR',
-      hint: 'If running on Vercel, ensure MONGODB_URI is connected in Vercel Storage or Project Environment Variables, and IP 0.0.0.0/0 is whitelisted in MongoDB Atlas Network Access.'
+      hint: 'Please check MONGODB_URI in Vercel Project Settings > Environment Variables. Make sure the value starts with mongodb:// or mongodb+srv:// and has no quotes. Also ensure MongoDB Atlas Network Access has 0.0.0.0/0 allowed.'
     });
   }
 });
@@ -109,15 +109,19 @@ app.use('/api/daily-visit-expenses', protect, dailyVisitExpenseRoutes);
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   const isConnected = mongoose.connection.readyState === 1;
-  const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const rawURI = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const cleanURI = sanitizeMongoURI(rawURI);
+  const isValidScheme = cleanURI.startsWith('mongodb://') || cleanURI.startsWith('mongodb+srv://');
+
   res.json({
     status: isConnected ? 'OK' : 'DEGRADED',
     service: 'Field Visit CRM API',
     uptime: process.uptime(),
     database: {
       status: isConnected ? 'Connected' : 'Disconnected',
-      configured: Boolean(mongoURI),
-      uri: mongoURI ? mongoURI.replace(/:([^@]+)@/, ':****@') : 'Not Configured (MONGODB_URI missing)'
+      configured: Boolean(rawURI),
+      validScheme: isValidScheme,
+      maskedUri: cleanURI ? cleanURI.replace(/:([^@]+)@/, ':****@') : 'Not Configured (MONGODB_URI missing)'
     },
     timestamp: new Date().toISOString()
   });
