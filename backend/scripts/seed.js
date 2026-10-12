@@ -6,7 +6,7 @@ import Client from '../models/Client.js';
 
 dotenv.config();
 
-const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fieldvisitcrm';
+const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fieldvisitcrm';
 
 const DEMO_USERS = [
   {
@@ -195,8 +195,10 @@ const INITIAL_VISITS = [
 
 export const seedDatabase = async () => {
   try {
-    await mongoose.connect(mongoURI);
-    console.log(`[Seed] Connected to MongoDB: ${mongoURI}`);
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(mongoURI);
+      console.log(`[Seed] Connected to MongoDB: ${mongoURI}`);
+    }
 
     // Check existing counts
     const userCount = await User.countDocuments();
@@ -224,7 +226,7 @@ export const seedDatabase = async () => {
 };
 
 // If run directly:
-if (process.argv[1].endsWith('seed.js')) {
+if (process.argv[1]?.endsWith('seed.js')) {
   seedDatabase().then(() => {
     mongoose.connection.close();
     process.exit(0);

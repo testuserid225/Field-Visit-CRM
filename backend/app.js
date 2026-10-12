@@ -18,6 +18,15 @@ import quotationRoutes from './routes/quotationRoutes.js';
 import dailyVisitExpenseRoutes from './routes/dailyVisitExpenseRoutes.js';
 import { protect } from './middleware/authMiddleware.js';
 
+import { seedEmployees } from './scripts/seedEmployees.js';
+import { seedMasters } from './scripts/seedMasters.js';
+import { seedCustomers } from './scripts/seedCustomers.js';
+import { seedContactPersons } from './scripts/seedContactPersons.js';
+import { seedDatabase } from './scripts/seed.js';
+import { seedOpportunities } from './scripts/seedOpportunities.js';
+import { seedQuotations } from './scripts/seedQuotations.js';
+import { seedDailyVisitExpenses } from './scripts/seedDailyVisitExpenses.js';
+
 dotenv.config();
 
 const app = express();
@@ -34,16 +43,52 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-// Auto-reconnect database middleware (Critical for Vercel serverless function invocations)
+// Auto-seed helper for cloud databases on serverless environments (e.g. Vercel)
+let isSeeded = false;
+const ensureSeeded = async () => {
+  if (isSeeded) return;
+  try {
+    await seedEmployees();
+    await seedMasters();
+    await seedCustomers();
+    await seedContactPersons();
+    await seedDatabase();
+    await seedOpportunities();
+    await seedQuotations();
+    await seedDailyVisitExpenses();
+    isSeeded = true;
+    console.log('[Seed] Database initialization and default accounts verified');
+  } catch (seedErr) {
+    console.warn('[Seed Warning]:', seedErr.message);
+  }
+};
+
+// Database connection & initialization middleware (Critical for Vercel serverless function invocations)
 app.use(async (req, res, next) => {
+  // Allow health check and root landing route without blocking on DB
+  if (req.path === '/' || req.path === '/api/health') {
+    return next();
+  }
+
   try {
     if (mongoose.connection.readyState !== 1) {
       await connectDB();
     }
+
+    if (mongoose.connection.readyState === 1 && !isSeeded) {
+      await ensureSeeded();
+    }
+
+    return next();
   } catch (dbErr) {
-    console.warn('[MongoDB Reconnect Warning]:', dbErr.message);
+    console.error('[MongoDB Middleware Error]:', dbErr.message);
+    return res.status(503).json({
+      success: false,
+      message: `Database Connection Failed: ${dbErr.message}`,
+      errorType: 'DATABASE_CONNECTION_ERROR',
+      hint: 'If running on Vercel, ensure MONGODB_URI is connected in Vercel Storage or Project Environment Variables, and IP 0.0.0.0/0 is whitelisted in MongoDB Atlas Network Access.'
+    });
   }
-  next();
 });
 
 // Public Authentication Route
@@ -64,14 +109,15 @@ app.use('/api/daily-visit-expenses', protect, dailyVisitExpenseRoutes);
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   const isConnected = mongoose.connection.readyState === 1;
-  const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fieldvisitcrm';
+  const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI;
   res.json({
-    status: 'OK',
+    status: isConnected ? 'OK' : 'DEGRADED',
     service: 'Field Visit CRM API',
     uptime: process.uptime(),
     database: {
-      status: isConnected ? 'Connected' : 'Disconnected / Connecting',
-      uri: mongoURI.replace(/:([^@]+)@/, ':****@') // mask password for security
+      status: isConnected ? 'Connected' : 'Disconnected',
+      configured: Boolean(mongoURI),
+      uri: mongoURI ? mongoURI.replace(/:([^@]+)@/, ':****@') : 'Not Configured (MONGODB_URI missing)'
     },
     timestamp: new Date().toISOString()
   });
