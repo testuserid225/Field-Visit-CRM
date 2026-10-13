@@ -1,0 +1,35 @@
+name: Field Visit CRM CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  continuous-integration:
+    name: Build & Code Verification (CI)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: 📦 Install Clean Dependencies
+        run: npm ci
+
+      - name: 🔍 Verify Backend Module & Syntax
+        run: |
+          node -e "import('./api/index.js').then(() => console.log('✅ Backend API module loaded cleanly!')).catch(err => { console.error('❌ Backend error:', err); process.exit(1); })"
+
+      - name: 🏗️ Build Frontend Bundle (Vite)
+        run: npm run build
+
+      - name: 🎉 CI Success Notice
+        run: echo "✅ Continuous Integration passed! All modules and build artifacts verified successfully."
