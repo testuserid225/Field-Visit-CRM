@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import Employee from '../models/Employee.js';
 
 export const INITIAL_EMPLOYEES = [
@@ -86,11 +87,22 @@ export const INITIAL_EMPLOYEES = [
 export const seedEmployees = async () => {
   try {
     for (const emp of INITIAL_EMPLOYEES) {
-      await Employee.updateOne(
-        { emailAddress: emp.emailAddress },
-        { $set: emp },
-        { upsert: true }
-      );
+      const existing = await Employee.findOne({ emailAddress: emp.emailAddress }).select('+accountPassword');
+      if (existing) {
+        // Update metadata but keep existing password if present (especially if hashed)
+        const { accountPassword, ...otherFields } = emp;
+        const updateDoc = { ...otherFields };
+        if (!existing.accountPassword) {
+          updateDoc.accountPassword = await bcrypt.hash(accountPassword, 10);
+        }
+        await Employee.updateOne({ emailAddress: emp.emailAddress }, { $set: updateDoc });
+      } else {
+        const hashedPassword = await bcrypt.hash(emp.accountPassword, 10);
+        await Employee.create({
+          ...emp,
+          accountPassword: hashedPassword
+        });
+      }
     }
     console.log(`[Seed] Seeded/Verified ${INITIAL_EMPLOYEES.length} initial employees`);
   } catch (err) {

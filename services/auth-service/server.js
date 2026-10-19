@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
 
 import { connectDB } from '../../backend/config/db.js';
 import { seedEmployees } from '../../backend/scripts/seedEmployees.js';
@@ -15,8 +17,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 5001;
 
+app.set('trust proxy', 1);
+
+app.use(helmet({
+  crossOriginResourcePolicy: false
+}));
+
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json({ limit: '10mb' }));
+app.use(mongoSanitize());
+
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }

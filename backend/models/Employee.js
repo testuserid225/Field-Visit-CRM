@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const employeeSchema = new mongoose.Schema(
   {
@@ -106,8 +107,9 @@ const employeeSchema = new mongoose.Schema(
   }
 );
 
-// Auto-generate employeeCode before save if not provided
+// Pre-save hook: auto-generate employeeCode and hash accountPassword
 employeeSchema.pre('save', async function (next) {
+  // 1. Auto-generate employeeCode if missing
   if (!this.employeeCode) {
     try {
       const allEmps = await mongoose.model('Employee').find({}, { employeeCode: 1 });
@@ -128,8 +130,27 @@ employeeSchema.pre('save', async function (next) {
       this.employeeCode = `EMP-${Date.now()}`;
     }
   }
+
+  // 2. Hash accountPassword if modified and not already a bcrypt hash
+  if (this.isModified('accountPassword') && this.accountPassword) {
+    if (!this.accountPassword.startsWith('$2a$') && !this.accountPassword.startsWith('$2b$')) {
+      const salt = await bcrypt.genSalt(10);
+      this.accountPassword = await bcrypt.hash(this.accountPassword, salt);
+    }
+  }
+
   next();
 });
+
+// Compare password helper (supports both bcrypt hashes and legacy plain-text)
+employeeSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.accountPassword || !candidatePassword) return false;
+  if (this.accountPassword.startsWith('$2a$') || this.accountPassword.startsWith('$2b$')) {
+    return await bcrypt.compare(candidatePassword, this.accountPassword);
+  }
+  // Backward-compatibility: plain text match for legacy accounts
+  return this.accountPassword === candidatePassword;
+};
 
 const Employee = mongoose.model('Employee', employeeSchema);
 export default Employee;

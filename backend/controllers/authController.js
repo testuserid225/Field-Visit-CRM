@@ -4,6 +4,7 @@ if (!globalThis.crypto) {
 }
 
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { generateSecret, verifySync, generateSync, generateURI } from 'otplib';
 import QRCode from 'qrcode';
 import Employee from '../models/Employee.js';
@@ -11,6 +12,11 @@ import User from '../models/User.js';
 
 // Helper to generate JWT token for an employee containing full login user details
 const generateToken = (employee) => {
+  const secret = process.env.JWT_SECRET || 'field_visit_crm_super_secret_jwt_token_key_2026';
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+    console.warn('[Security Warning]: Running in production with fallback JWT_SECRET! Please configure a strong JWT_SECRET in environment variables.');
+  }
+
   return jwt.sign(
     {
       id: employee._id,
@@ -24,7 +30,7 @@ const generateToken = (employee) => {
       role: employee.securityRole,
       securityRole: employee.securityRole
     },
-    process.env.JWT_SECRET || 'field_visit_crm_super_secret_jwt_token_key_2026',
+    secret,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 };
@@ -34,7 +40,15 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    // Strict NoSQL Injection check: ensure inputs are primitive strings
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid request format. Email and password must be text strings.' 
+      });
+    }
+
+    if (!email.trim() || !password) {
       return res.status(400).json({ 
         success: false, 
         message: 'Please provide both email and password.' 
@@ -52,12 +66,25 @@ export const login = async (req, res) => {
     }).select('+accountPassword +twoFactorSecret +tempTwoFactorSecret');
 
     if (employee) {
-      // Validate employee account password
-      if (employee.accountPassword && employee.accountPassword !== password) {
+      // Validate employee account password via bcrypt (or legacy plain-text fallback)
+      const isPasswordValid = await employee.comparePassword(password);
+      if (!isPasswordValid) {
         return res.status(401).json({
           success: false,
           message: 'Invalid password. Please check your employee credentials.'
         });
+      }
+
+      // Seamless Auto-Upgrade: If stored password was legacy plain text, upgrade it to a secure bcrypt hash now
+      if (employee.accountPassword && !employee.accountPassword.startsWith('$2a$') && !employee.accountPassword.startsWith('$2b$')) {
+        try {
+          const salt = await bcrypt.genSalt(10);
+          employee.accountPassword = await bcrypt.hash(password, salt);
+          await employee.save();
+          console.log(`[Security Hardening] Auto-migrated legacy plain-text password for "${employee.emailAddress}" to bcrypt hash.`);
+        } catch (migrateErr) {
+          console.warn('[Password Auto-Migration Warning]:', migrateErr.message);
+        }
       }
 
       // Check employee status
@@ -400,14 +427,20 @@ export const reset2FA = async (req, res) => {
         employee = await Employee.findById(decoded.id);
       } catch {}
     } else if (email && password) {
+      if (typeof email !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ success: false, message: 'Invalid credentials format.' });
+      }
       employee = await Employee.findOne({
         $or: [
           { emailAddress: email.trim().toLowerCase() },
           { employeeCode: email.trim().toUpperCase() }
         ]
       }).select('+accountPassword');
-      if (employee && employee.accountPassword && employee.accountPassword !== password) {
-        return res.status(401).json({ success: false, message: 'Invalid password. Cannot reset 2FA.' });
+      if (employee) {
+        const isPasswordValid = await employee.comparePassword(password);
+        if (!isPasswordValid) {
+          return res.status(401).json({ success: false, message: 'Invalid password. Cannot reset 2FA.' });
+        }
       }
     }
 

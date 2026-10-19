@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import Employee from '../models/Employee.js';
 import { Department, Designation, Branch, GradeFuelRate } from '../models/MasterModels.js';
 
@@ -139,6 +140,15 @@ export const createEmployee = async (req, res) => {
 export const updateEmployee = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Hash new password if changed in update payload
+    if (req.body.accountPassword && typeof req.body.accountPassword === 'string') {
+      if (!req.body.accountPassword.startsWith('$2a$') && !req.body.accountPassword.startsWith('$2b$')) {
+        const salt = await bcrypt.genSalt(10);
+        req.body.accountPassword = await bcrypt.hash(req.body.accountPassword, salt);
+      }
+    }
+
     const updated = await Employee.findByIdAndUpdate(
       id,
       req.body,

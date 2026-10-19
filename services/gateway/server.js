@@ -4,11 +4,21 @@ import dotenv from 'dotenv';
 import morgan from 'morgan';
 import proxy from 'express-http-proxy';
 import http from 'http';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.GATEWAY_PORT || 5000;
+
+// Trust reverse proxy for client IP resolution
+app.set('trust proxy', 1);
+
+// HTTP Security Headers
+app.use(helmet({
+  crossOriginResourcePolicy: false
+}));
 
 // Microservice Base URLs (configurable via environment variables)
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://127.0.0.1:5001';
@@ -16,8 +26,40 @@ const VISIT_SERVICE_URL = process.env.VISIT_SERVICE_URL || 'http://127.0.0.1:500
 const SALES_SERVICE_URL = process.env.SALES_SERVICE_URL || 'http://127.0.0.1:5003';
 const MASTER_SERVICE_URL = process.env.MASTER_SERVICE_URL || 'http://127.0.0.1:5004';
 
-// Middlewares
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+// Hardened CORS
+const allowedOriginRegex = /^(https?:\/\/localhost(:\d+)?|https?:\/\/127\.0\.0\.1(:\d+)?|https:\/\/.*\.vercel\.app)$/;
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOriginRegex.test(origin) || (process.env.CLIENT_URL && origin === process.env.CLIENT_URL)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Rate Limiters
+const gatewayLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many login attempts. Please try again after 15 minutes.' }
+});
+
+const gatewayApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'API Gateway rate limit exceeded. Please try again later.' }
+});
+
+app.use('/api/', gatewayApiLimiter);
+app.use('/api/auth/login', gatewayLoginLimiter);
+
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }

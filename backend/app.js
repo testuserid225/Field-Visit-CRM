@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import mongoSanitize from 'express-mongo-sanitize';
 
 import { connectDB, sanitizeMongoURI } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
@@ -31,17 +34,58 @@ dotenv.config();
 
 const app = express();
 
-// Middlewares
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+// Trust reverse proxy (Vercel, Cloudflare, NGINX) for accurate client IP rate limiting
+app.set('trust proxy', 1);
+
+// 1. HTTP Security Headers (prevents Clickjacking, MIME sniffing, XSS)
+app.use(helmet({
+  crossOriginResourcePolicy: false // Allows loading assets and avatars across origins
 }));
 
+// 2. Strict CORS Configuration: Allow local development and Vercel deployments
+const allowedOriginRegex = /^(https?:\/\/localhost(:\d+)?|https?:\/\/127\.0\.0\.1(:\d+)?|https:\/\/.*\.vercel\.app)$/;
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOriginRegex.test(origin) || (process.env.CLIENT_URL && origin === process.env.CLIENT_URL)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// 3. Body Parsing & NoSQL Injection Protection
 app.use(express.json({ limit: '10mb' }));
+app.use(mongoSanitize()); // Strips MongoDB query operators ($ and .) from req.body and req.query
+
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
+
+// 4. Rate Limiting: Brute-Force & DDoS Mitigation
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes window
+  max: 15, // Allow max 15 login attempts per 15 minutes per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many login attempts from this IP address. Please try again after 15 minutes.'
+  }
+});
+
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 600, // 600 API requests per 15 mins per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'API rate limit exceeded. Please try again later.'
+  }
+});
 
 // Auto-seed helper for cloud databases on serverless environments (e.g. Vercel)
 let isSeeded = false;
@@ -91,7 +135,11 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Public Authentication Route
+// Apply General API Rate Limiter
+app.use('/api/', generalApiLimiter);
+
+// Public Authentication Route (with strict brute-force protection on /login)
+app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
 
 // Protected CRM API Routes
