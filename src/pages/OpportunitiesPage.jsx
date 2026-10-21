@@ -44,13 +44,6 @@ import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
-import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
-
-const OPPORTUNITY_VIEW_OPTIONS = [
-  { id: 'aggrid', label: 'AG Grid', icon: LayoutGrid, badge: 'PRO' },
-  { id: 'list', label: 'Data List', icon: List },
-  { id: 'kanban', label: 'Kanban Board', icon: Layers }
-];
 
 const OPPORTUNITY_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -1152,9 +1145,6 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations, cur
               sheetName="Opportunities"
               showToast={showToast}
             />
-
-            {/* View Mode Toggle: AG Grid vs Table View vs Kanban */}
-            <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} options={OPPORTUNITY_VIEW_OPTIONS} />
           </div>
         </div>
       </div>

@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
-import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 import { isBranchManager, isSystemAdmin, getUserBranch } from '../utils/userRoleUtils';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
@@ -626,9 +625,6 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
               </select>
             </div>
           )}
-
-          {/* View Mode Toggle: AG Grid vs Standard View */}
-          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
 
           {/* Manual Refresh Button */}
           <button

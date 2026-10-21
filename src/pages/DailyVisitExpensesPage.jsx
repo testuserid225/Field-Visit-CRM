@@ -40,7 +40,6 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
-import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
@@ -962,11 +961,8 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
           </div>
         </div>
 
-        {/* Action Buttons & View Mode Toggle */}
+        {/* Top Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* View Mode Toggle: AG Grid vs Standard View */}
-          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
-
           <button
             onClick={fetchReports}
             disabled={loading}

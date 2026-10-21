@@ -32,7 +32,6 @@ import useColumnVisibility from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
-import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 
 const EMPLOYEE_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -479,7 +478,7 @@ export default function EmployeesPage({ showToast, currentUser }) {
       {/* Header and Action Bar */}
       <div style={{
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '16px',
@@ -511,10 +510,8 @@ export default function EmployeesPage({ showToast, currentUser }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* View Mode Toggle: AG Grid vs Standard */}
-          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
-
+        {/* Top Right Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             id="refresh-employees-btn"
             onClick={fetchData}

@@ -40,7 +40,6 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
-import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
@@ -2274,11 +2273,8 @@ export default function QuotationsPage({
           </div>
         </div>
 
-        {/* Action Buttons & View Toggle */}
+        {/* Top Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* View Mode Toggle: AG Grid vs Standard View */}
-          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
-
           <button
             onClick={fetchQuotations}
             disabled={loading}
