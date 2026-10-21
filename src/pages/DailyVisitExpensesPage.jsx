@@ -121,6 +121,12 @@ const STATUS_BADGES = {
     border: 'rgba(239, 68, 68, 0.3)',
     icon: XCircle
   },
+  'COMPLETED': {
+    bg: 'rgba(16, 185, 129, 0.12)',
+    text: '#10b981',
+    border: 'rgba(16, 185, 129, 0.3)',
+    icon: CheckCircle2
+  },
   'REIMBURSED': {
     bg: 'rgba(139, 92, 246, 0.12)',
     text: '#8b5cf6',

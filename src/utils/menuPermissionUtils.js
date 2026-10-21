@@ -113,6 +113,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'opportunities',
     'quotations',
     'approval-inbox',
+    'daily-expenses',
     'customers',
     'contact-persons',
     'employees',
@@ -165,17 +166,27 @@ export function normalizeRoleId(roleStr = '') {
  */
 export function getMenuPermissions() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return {
-          roles: {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          const roles = {
             ...DEFAULT_ROLE_PERMISSIONS,
             ...(parsed.roles || {})
-          },
-          userOverrides: parsed.userOverrides || {}
-        };
+          };
+          // Ensure daily-expenses is always present for branch_mgr and admin
+          if (roles.branch_mgr && !roles.branch_mgr.includes('daily-expenses')) {
+            roles.branch_mgr.push('daily-expenses');
+          }
+          if (roles.admin && !roles.admin.includes('daily-expenses')) {
+            roles.admin.push('daily-expenses');
+          }
+          return {
+            roles,
+            userOverrides: parsed.userOverrides || {}
+          };
+        }
       }
     }
   } catch (err) {
@@ -193,11 +204,15 @@ export function getMenuPermissions() {
  */
 export function saveMenuPermissions(permissions) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(permissions));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(permissions));
+    }
     // Dispatch reactive custom event so Sidebar and Navbar update instantly
-    window.dispatchEvent(new CustomEvent('crm-menu-permissions-changed', {
-      detail: permissions
-    }));
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('crm-menu-permissions-changed', {
+        detail: permissions
+      }));
+    }
     return true;
   } catch (err) {
     console.error('Failed to save menu permissions:', err);

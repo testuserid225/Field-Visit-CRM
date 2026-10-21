@@ -10,7 +10,6 @@ import QuotationsPage from './pages/QuotationsPage';
 import DailyVisitExpensesPage from './pages/DailyVisitExpensesPage';
 import ApprovalInboxPage from './pages/ApprovalInboxPage';
 import SecurityPermissionsPage from './pages/SecurityPermissionsPage';
-import { isBranchManagerOrAdmin } from './utils/userRoleUtils';
 
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
@@ -146,12 +145,7 @@ export default function App() {
     }, 3500);
   };
 
-  // Role Navigation Guard: Branch Manager & System Administrator should NOT access daily-expenses
-  useEffect(() => {
-    if (isBranchManagerOrAdmin(currentUser) && currentPage === 'daily-expenses') {
-      navigateTo('approval-inbox', { status: currentFilterStatus });
-    }
-  }, [currentUser, currentPage]);
+
 
   // Sync data from MongoDB backend on mount with cryptographic token validation
   const syncBackendData = async () => {
