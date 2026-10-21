@@ -36,12 +36,14 @@ import {
   RefreshCw,
   Clock,
   ExternalLink,
-  Tag
+  Tag,
+  Table
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
+import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
 
 const OPPORTUNITY_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -105,7 +107,7 @@ const STAGE_COLORS = {
   'Lost Deals': { bg: 'rgba(239, 68, 68, 0.12)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)' }
 };
 
-export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
+export default function OpportunitiesPage({ showToast, onNavigateQuotations, currentUser }) {
   const {
     columns: oppColumns,
     visibleColumns: visibleOppCols,
@@ -126,8 +128,8 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
   const [salesEmployees, setSalesEmployees] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
 
-  // UI view controls - Default to Data List view!
-  const [viewMode, setViewMode] = useState('list'); // 'list' (default) or 'kanban'
+  // UI view controls - Default to AG Grid Advanced view!
+  const [viewMode, setViewMode] = useState('aggrid'); // 'aggrid' (default), 'list', or 'kanban'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStageFilter, setSelectedStageFilter] = useState('All Stages');
   const [selectedPrincipalFilter, setSelectedPrincipalFilter] = useState('All Principals');
@@ -595,6 +597,152 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
     }).format(num);
   };
 
+  // AG Grid Column Definitions
+  const agGridColumnDefs = useMemo(() => [
+    {
+      colId: 'index',
+      headerName: '#',
+      valueGetter: (params) => (params.node && typeof params.node.rowIndex === 'number' ? params.node.rowIndex + 1 : 1),
+      width: 65,
+      maxWidth: 75,
+      pinned: 'left',
+      sortable: false,
+      filter: false
+    },
+    {
+      field: 'opportunityCode',
+      headerName: 'Opportunity Code & Title',
+      flex: 1.3,
+      minWidth: 210,
+      cellRenderer: (params) => {
+        const opp = params.data;
+        if (!opp) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+              {opp.title || opp.opportunityName}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--primary-600)', fontFamily: 'monospace' }}>
+              {opp.opportunityCode}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'customerClient',
+      headerName: 'Customer Client',
+      flex: 1.2,
+      minWidth: 200,
+      valueGetter: (params) => params.data?.customerClient || params.data?.customerName || '—',
+      cellRenderer: (params) => {
+        const val = params.value;
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+            <Building2 size={13} color="var(--primary-600)" />
+            <span>{val}</span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'principalBrand',
+      headerName: 'Principal OEM Brand',
+      minWidth: 160,
+      valueGetter: (params) => params.data?.principalBrand || params.data?.principalName || '—'
+    },
+    {
+      field: 'dealValue',
+      headerName: 'Deal Value (₹)',
+      type: 'currency',
+      minWidth: 150,
+      valueFormatter: (params) => `₹ ${Number(params.value || 0).toLocaleString('en-IN')}`
+    },
+    {
+      field: 'stage',
+      headerName: 'Pipeline Stage',
+      minWidth: 160,
+      valueGetter: (params) => params.data?.stage || params.data?.pipelineStage || 'New Leads',
+      cellRenderer: (params) => {
+        const st = params.value;
+        const stColor = STAGE_COLORS[st] || { bg: 'rgba(59, 130, 246, 0.12)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)' };
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '2px 10px',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            backgroundColor: stColor.bg,
+            color: stColor.text,
+            border: `1px solid ${stColor.border}`
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: stColor.text }} />
+            {st}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'assignedSalesperson',
+      headerName: 'Assigned Salesperson',
+      minWidth: 160
+    },
+    {
+      field: 'leadSource',
+      headerName: 'Lead Source',
+      minWidth: 140
+    },
+    {
+      field: 'expectedClosureDate',
+      headerName: 'Expected Closing',
+      type: 'date',
+      minWidth: 130
+    },
+    {
+      colId: 'actions',
+      headerName: 'Actions',
+      pinned: 'right',
+      width: 120,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        const opp = params.data;
+        if (!opp) return null;
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+            <button
+              onClick={() => setViewDetailsOpp(opp)}
+              className="btn-icon"
+              style={{ padding: '5px 7px', borderRadius: '6px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+              title="View Details"
+            >
+              <Eye size={13} />
+            </button>
+            <button
+              onClick={() => handleOpenEditModal(opp)}
+              className="btn-icon"
+              style={{ padding: '5px 7px', borderRadius: '6px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-subtle)', color: 'var(--primary-700)', cursor: 'pointer' }}
+              title="Edit Opportunity"
+            >
+              <Edit3 size={13} />
+            </button>
+            <button
+              onClick={() => handleDeleteOpportunity(opp)}
+              className="btn-icon"
+              style={{ padding: '5px 7px', borderRadius: '6px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', color: '#e11d48', cursor: 'pointer' }}
+              title="Delete Opportunity"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        );
+      }
+    }
+  ], []);
+
   return (
     <div className="page-body animate-fade-in" style={{ padding: '24px 32px' }}>
       {/* Page Header */}
@@ -990,16 +1138,41 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
               showToast={showToast}
             />
 
-            {/* View Mode Toggle: Table View vs Kanban */}
+            {/* View Mode Toggle: AG Grid vs Table View vs Kanban */}
             <div style={{
               display: 'flex',
               backgroundColor: 'var(--bg-main)',
               border: '1px solid var(--border-subtle)',
               borderRadius: '20px',
-              padding: '2px'
+              padding: '2px',
+              gap: '2px'
             }}>
               <button
+                id="view-mode-aggrid-btn"
+                type="button"
+                onClick={() => setViewMode('aggrid')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  borderRadius: '16px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
+                  color: viewMode === 'aggrid' ? '#fff' : 'var(--text-muted)',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Switch to AG Grid Enterprise Ready Data Grid"
+              >
+                <LayoutGrid size={14} />
+                <span>AG Grid (Advanced)</span>
+              </button>
+              <button
                 id="view-mode-table-btn"
+                type="button"
                 onClick={() => setViewMode('list')}
                 style={{
                   display: 'flex',
@@ -1021,6 +1194,7 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
               </button>
               <button
                 id="view-mode-kanban-btn"
+                type="button"
                 onClick={() => setViewMode('kanban')}
                 style={{
                   display: 'flex',
@@ -1037,7 +1211,7 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
                   transition: 'all 0.15s ease'
                 }}
               >
-                <LayoutGrid size={14} />
+                <Layers size={14} />
                 <span>Kanban Board</span>
               </button>
             </div>
@@ -1045,8 +1219,27 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations }) {
         </div>
       </div>
 
-      {/* Main View: Kanban Pipeline vs List View */}
-      {viewMode === 'kanban' ? (
+      {/* Main View: AG Grid vs Kanban vs Standard List Table */}
+      {viewMode === 'aggrid' ? (
+        <AdvancedDataGrid
+          gridId="crm_opportunities_grid"
+          title="Sales Opportunities Pipeline"
+          subtitle="Deal pipeline with columns manager, multi-filters, formatters, chart visualizer, pivoting, and reporting"
+          rowData={opportunities}
+          columnDefs={agGridColumnDefs}
+          isLoading={loading}
+          onRefresh={loadOpportunities}
+          currentUser={currentUser?.email || currentUser?.username || 'admin'}
+          showToast={showToast}
+          exportFilename="Opportunities_Pipeline"
+          defaultPageSize={25}
+          primaryAction={{
+            label: 'Add Opportunity',
+            onClick: handleOpenCreateModal,
+            id: 'ag-primary-add-opp'
+          }}
+        />
+      ) : viewMode === 'kanban' ? (
         /* Kanban Pipeline Board */
         <div style={{
           display: 'grid',

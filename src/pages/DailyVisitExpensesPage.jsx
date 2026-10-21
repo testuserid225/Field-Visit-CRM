@@ -34,9 +34,12 @@ import {
   ShieldCheck,
   FileCheck,
   Send,
-  Users
+  Users,
+  LayoutGrid,
+  Table
 } from 'lucide-react';
 import { api } from '../services/api';
+import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
@@ -140,6 +143,7 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
   const [reports, setReports] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('aggrid');
 
   // Dropdown Dependencies
   const [customers, setCustomers] = useState([]);
@@ -665,6 +669,272 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
     }).format(Number(val) || 0);
   };
 
+  // AG Grid Column Definitions
+  const agGridColumnDefs = useMemo(() => [
+    {
+      colId: 'index',
+      headerName: '#',
+      valueGetter: (params) => (params.node && typeof params.node.rowIndex === 'number' ? params.node.rowIndex + 1 : 1),
+      width: 65,
+      maxWidth: 75,
+      pinned: 'left',
+      sortable: false,
+      filter: false
+    },
+    {
+      field: 'reportNumber',
+      headerName: 'Report # & Date',
+      flex: 1.3,
+      minWidth: 190,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.85rem' }}>
+              {r.reportNumber}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+              <Calendar size={11} />
+              <span>{r.visitDate ? String(r.visitDate).split('T')[0] : ''}</span>
+              {r.startTime && <span>• {r.startTime} - {r.endTime}</span>}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'employeeName',
+      headerName: 'Employee',
+      flex: 1.2,
+      minWidth: 170,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem' }}>
+              {r.employeeName}
+            </span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              {r.department} {r.branch ? `• ${r.branch}` : ''}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'customerName',
+      headerName: 'Customer & Contact',
+      flex: 1.4,
+      minWidth: 210,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem' }}>
+              {r.customerName}
+            </span>
+            {r.contactPerson && (
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Attn: {r.contactPerson}
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      field: 'activity',
+      headerName: 'Activity Type',
+      flex: 1.2,
+      minWidth: 170,
+      cellRenderer: (params) => {
+        const act = params.value || params.data?.activityType;
+        if (!act) return '—';
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <span style={{
+              padding: '3px 8px',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              color: '#3b82f6',
+              fontWeight: 600,
+              fontSize: '0.74rem'
+            }}>
+              {act}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'productMachine',
+      headerName: 'Product / Machine',
+      flex: 1,
+      minWidth: 150,
+      cellRenderer: (params) => {
+        return (
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 500 }}>
+            {params.value || '—'}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'placeTo',
+      headerName: 'Route',
+      flex: 1.2,
+      minWidth: 180,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>
+              <MapPin size={12} color="#10b981" />
+              <span>{r.placeFrom || '—'} ➔ {r.placeTo || '—'}</span>
+            </div>
+            {r.personCount && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {r.personCount} Person(s)
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      field: 'totalKm',
+      headerName: 'Distance (KM)',
+      width: 130,
+      type: 'numericColumn',
+      cellRenderer: (params) => {
+        const km = params.value || 0;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <span style={{
+              padding: '3px 8px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              color: '#8b5cf6',
+              fontWeight: 700,
+              fontSize: '0.78rem'
+            }}>
+              {km} KM
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'totalClaimAmount',
+      headerName: 'Total Claim (₹)',
+      width: 155,
+      type: 'numericColumn',
+      cellRenderer: (params) => {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+            <span style={{ fontWeight: 800, color: '#10b981', fontSize: '0.92rem' }}>
+              {formatINR(params.value)}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 155,
+      cellRenderer: (params) => {
+        const st = params.value || 'DRAFT';
+        const badge = STATUS_BADGES[st] || STATUS_BADGES['DRAFT'];
+        const IconComponent = badge.icon || Clock;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '3px 9px',
+              borderRadius: '14px',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              backgroundColor: badge.bg,
+              color: badge.text,
+              border: `1px solid ${badge.border}`
+            }}>
+              <IconComponent size={11} />
+              <span>{st}</span>
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      colId: 'actions',
+      headerName: 'Actions',
+      width: 140,
+      pinned: 'right',
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        const report = params.data;
+        if (!report) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+            <button
+              type="button"
+              onClick={() => handleOpenPreview(report)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title="View & Print Official Claim Sheet"
+            >
+              <Eye size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenEditModal(report)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title="Edit Report & Expenses"
+            >
+              <Edit3 size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeleteReport(report._id, report.reportNumber)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                color: '#ef4444',
+                cursor: 'pointer'
+              }}
+              title="Delete Report"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        );
+      }
+    }
+  ], [reports]);
+
   return (
     <div style={{ padding: '24px 28px', maxWidth: '1600px', margin: '0 auto' }}>
 
@@ -710,8 +980,67 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Action Buttons & View Mode Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* View Mode Toggle: AG Grid vs Standard View */}
+          <div style={{
+            display: 'inline-flex',
+            backgroundColor: 'var(--bg-card)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
+            gap: '3px'
+          }}>
+            <button
+              id="view-toggle-aggrid"
+              type="button"
+              onClick={() => setViewMode('aggrid')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to AG Grid Enterprise Ready Data Grid"
+            >
+              <LayoutGrid size={14} />
+              <span>AG Grid (Advanced)</span>
+            </button>
+            <button
+              id="view-toggle-standard"
+              type="button"
+              onClick={() => setViewMode('standard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to Standard Table View"
+            >
+              <Table size={14} />
+              <span>Standard Table</span>
+            </button>
+          </div>
+
           <button
             onClick={fetchReports}
             disabled={loading}
@@ -877,8 +1206,30 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
         </div>
       </div>
 
-      {/* 3. Filter & Search Toolbar */}
-      <div className="card" style={{
+      {/* View Mode Content: Advanced AG Grid vs Standard Table */}
+      {viewMode === 'aggrid' ? (
+        <AdvancedDataGrid
+          gridId="crm_daily_expenses_directory"
+          title="Daily Visit & Expense Claims"
+          subtitle="Enterprise field visit claim log with distance tracker, multi-level status audit, and Excel/PDF export"
+          rowData={reports}
+          columnDefs={agGridColumnDefs}
+          isLoading={loading}
+          onRefresh={fetchReports}
+          currentUser={currentUser?.email || currentUser?.username || 'admin'}
+          showToast={showToast}
+          exportFilename="Daily_Visit_Expenses"
+          defaultPageSize={25}
+          primaryAction={{
+            label: 'New Visit & Expense',
+            onClick: handleOpenCreateModal,
+            id: 'ag-primary-add-expense'
+          }}
+        />
+      ) : (
+        <>
+          {/* 3. Filter & Search Toolbar */}
+          <div className="card" style={{
         padding: '16px 20px',
         borderRadius: 'var(--radius-lg)',
         marginBottom: '20px',
@@ -1404,6 +1755,8 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* ========================================================================= */}
       {/* 5. CREATE / EDIT DAILY VISIT & EXPENSES MODAL                             */}

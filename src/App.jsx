@@ -440,15 +440,15 @@ export default function App() {
           )}
 
           {currentPage === 'employees' && (
-            <EmployeesPage showToast={showToast} />
+            <EmployeesPage showToast={showToast} currentUser={currentUser} />
           )}
 
           {currentPage === 'customers' && (
-            <CustomersPage showToast={showToast} />
+            <CustomersPage showToast={showToast} currentUser={currentUser} />
           )}
 
           {currentPage === 'contact-persons' && (
-            <ContactPersonsPage showToast={showToast} />
+            <ContactPersonsPage showToast={showToast} currentUser={currentUser} />
           )}
 
           {currentPage === 'security' && (

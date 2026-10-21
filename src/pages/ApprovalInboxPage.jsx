@@ -21,9 +21,12 @@ import {
   FileText,
   Navigation,
   ChevronRight,
-  Info
+  Info,
+  LayoutGrid,
+  Table
 } from 'lucide-react';
 import { api } from '../services/api';
+import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
 import { isBranchManager, isSystemAdmin, getUserBranch } from '../utils/userRoleUtils';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
@@ -85,6 +88,7 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState('aggrid');
 
   // Search filter - Inbox strictly shows only "Pending Approval" (SUBMITTED) records
   const [searchQuery, setSearchQuery] = useState('');
@@ -268,6 +272,264 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
     }).format(amt || 0);
   };
 
+  // AG Grid Column Definitions
+  const agGridColumnDefs = useMemo(() => [
+    {
+      colId: 'index',
+      headerName: '#',
+      valueGetter: (params) => (params.node && typeof params.node.rowIndex === 'number' ? params.node.rowIndex + 1 : 1),
+      width: 65,
+      maxWidth: 75,
+      pinned: 'left',
+      sortable: false,
+      filter: false
+    },
+    {
+      field: 'reportNumber',
+      headerName: 'Report # & Date',
+      flex: 1.3,
+      minWidth: 190,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.85rem' }}>
+              {r.reportNumber}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+              <Calendar size={11} />
+              <span>{r.visitDate ? String(r.visitDate).split('T')[0] : ''}</span>
+              {r.startTime && <span>• {r.startTime}</span>}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'employeeName',
+      headerName: 'Employee',
+      flex: 1.2,
+      minWidth: 170,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem' }}>
+              {r.employeeName}
+            </span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              {r.department} {r.branch ? `• ${r.branch}` : ''}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'customerName',
+      headerName: 'Customer / Client',
+      flex: 1.4,
+      minWidth: 200,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem' }}>
+              {r.customerName}
+            </span>
+            {r.contactPerson && (
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Attn: {r.contactPerson}
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      field: 'activity',
+      headerName: 'Activity',
+      flex: 1.1,
+      minWidth: 150,
+      cellRenderer: (params) => {
+        const act = params.value || params.data?.activityType;
+        if (!act) return '—';
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <span style={{
+              padding: '3px 8px',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              color: '#3b82f6',
+              fontWeight: 600,
+              fontSize: '0.74rem'
+            }}>
+              {act}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'placeTo',
+      headerName: 'Route',
+      flex: 1.2,
+      minWidth: 170,
+      cellRenderer: (params) => {
+        const r = params.data;
+        if (!r) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '100%', fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>
+            <MapPin size={12} color="#10b981" />
+            <span>{r.placeFrom || '—'} ➔ {r.placeTo || '—'}</span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'totalKm',
+      headerName: 'Distance (KM)',
+      width: 130,
+      type: 'numericColumn',
+      cellRenderer: (params) => {
+        const km = params.value || 0;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <span style={{
+              padding: '3px 8px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              color: '#8b5cf6',
+              fontWeight: 700,
+              fontSize: '0.78rem'
+            }}>
+              {km} KM
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'totalClaimAmount',
+      headerName: 'Claim Amount',
+      width: 155,
+      type: 'numericColumn',
+      cellRenderer: (params) => {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+            <span style={{ fontWeight: 800, color: '#10b981', fontSize: '0.92rem' }}>
+              {formatCurrency(params.value)}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 155,
+      cellRenderer: () => {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '3px 9px',
+              borderRadius: '14px',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              color: '#f59e0b',
+              border: '1px solid rgba(245, 158, 11, 0.35)'
+            }}>
+              <Clock size={11} />
+              <span>Pending</span>
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      colId: 'actions',
+      headerName: 'Approval Actions',
+      width: 180,
+      pinned: 'right',
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        const report = params.data;
+        if (!report) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedReport(report);
+                setIsDetailModalOpen(true);
+              }}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title="Review Full Details & Line Items"
+            >
+              <Eye size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleApproveReport(report)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                fontWeight: 700,
+                fontSize: '0.74rem',
+                cursor: 'pointer'
+              }}
+              title="Approve Claim"
+            >
+              <Check size={12} />
+              <span>Approve</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenRejectModal(report)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                color: '#ef4444',
+                fontWeight: 700,
+                fontSize: '0.74rem',
+                cursor: 'pointer'
+              }}
+              title="Reject Claim"
+            >
+              <X size={12} />
+              <span>Reject</span>
+            </button>
+          </div>
+        );
+      }
+    }
+  ], [reports]);
+
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1600px', margin: '0 auto', color: 'var(--text-main)' }}>
       {/* 1. Header Banner */}
@@ -355,6 +617,65 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
               </select>
             </div>
           )}
+
+          {/* View Mode Toggle: AG Grid vs Standard View */}
+          <div style={{
+            display: 'inline-flex',
+            backgroundColor: 'var(--bg-main)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
+            gap: '3px'
+          }}>
+            <button
+              id="view-toggle-aggrid"
+              type="button"
+              onClick={() => setViewMode('aggrid')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to AG Grid Enterprise Ready Data Grid"
+            >
+              <LayoutGrid size={14} />
+              <span>AG Grid (Advanced)</span>
+            </button>
+            <button
+              id="view-toggle-standard"
+              type="button"
+              onClick={() => setViewMode('standard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to Standard Table View"
+            >
+              <Table size={14} />
+              <span>Standard Table</span>
+            </button>
+          </div>
 
           {/* Manual Refresh Button */}
           <button
@@ -562,8 +883,25 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
         </div>
       </div>
 
-      {/* 3. Navigation Filter & Search Bar */}
-      <div style={{
+      {/* View Mode Content: Advanced AG Grid vs Standard Table */}
+      {viewMode === 'aggrid' ? (
+        <AdvancedDataGrid
+          gridId="crm_approval_inbox_directory"
+          title="Approval Inbox - Pending Field Visit Claims"
+          subtitle="Managerial verification grid with real-time audit tools, distance checks, itemized receipts, and Excel/PDF export"
+          rowData={filteredReports}
+          columnDefs={agGridColumnDefs}
+          isLoading={loading}
+          onRefresh={() => loadInboxData(true)}
+          currentUser={currentUser?.email || currentUser?.username || 'admin'}
+          showToast={showToast}
+          exportFilename="Approval_Inbox_Pending_Claims"
+          defaultPageSize={25}
+        />
+      ) : (
+        <>
+          {/* 3. Navigation Filter & Search Bar */}
+          <div style={{
         backgroundColor: 'var(--bg-card)',
         borderRadius: '16px',
         border: '1px solid var(--border-subtle)',
@@ -1007,6 +1345,8 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* 5. Comprehensive Full Detail Review Modal */}
       {isDetailModalOpen && selectedReport && (

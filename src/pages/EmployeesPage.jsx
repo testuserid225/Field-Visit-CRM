@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Users,
   UserCheck,
@@ -23,12 +23,15 @@ import {
   RefreshCw,
   Sparkles,
   CheckCircle2,
-  BadgeCheck
+  BadgeCheck,
+  LayoutGrid,
+  Table
 } from 'lucide-react';
 import { api } from '../services/api';
 import useColumnVisibility from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
+import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
 
 const EMPLOYEE_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -68,7 +71,8 @@ const DEFAULT_SECURITY_ROLES = [
 const DEFAULT_GENDERS = ['Male', 'Female', 'Other'];
 const DEFAULT_STATUSES = ['Active', 'Inactive', 'On Leave'];
 
-export default function EmployeesPage({ showToast }) {
+export default function EmployeesPage({ showToast, currentUser }) {
+  const [viewMode, setViewMode] = useState('aggrid'); // 'aggrid' | 'standard'
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -294,6 +298,202 @@ export default function EmployeesPage({ showToast }) {
     return matchesSearch && matchesDept && matchesStatus;
   });
 
+  // AG Grid Column Definitions
+  const agGridColumnDefs = useMemo(() => [
+    {
+      colId: 'index',
+      headerName: '#',
+      valueGetter: (params) => (params.node && typeof params.node.rowIndex === 'number' ? params.node.rowIndex + 1 : 1),
+      width: 65,
+      maxWidth: 75,
+      pinned: 'left',
+      sortable: false,
+      filter: false
+    },
+    {
+      field: 'fullName',
+      headerName: 'Employee Name & Code',
+      flex: 1.3,
+      minWidth: 200,
+      cellRenderer: (params) => {
+        const emp = params.data;
+        if (!emp) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+              {emp.fullName}
+            </span>
+            {emp.employeeCode && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                {emp.employeeCode}
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      field: 'department',
+      headerName: 'Department',
+      minWidth: 150
+    },
+    {
+      field: 'designation',
+      headerName: 'Designation',
+      minWidth: 160
+    },
+    {
+      field: 'branch',
+      headerName: 'Branch Office',
+      minWidth: 140
+    },
+    {
+      field: 'employeeGrade',
+      headerName: 'Grade & Level',
+      minWidth: 130
+    },
+    {
+      field: 'securityRole',
+      headerName: 'Security Role',
+      minWidth: 160,
+      cellRenderer: (params) => {
+        const role = params.value;
+        if (!role) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: 'var(--primary-700)'
+          }}>
+            <Shield size={12} />
+            {role}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'mobileNo',
+      headerName: 'Mobile Contact',
+      minWidth: 150,
+      cellRenderer: (params) => {
+        const num = params.value;
+        if (!num) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        return (
+          <a href={`tel:${num}`} style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: 600 }}>
+            {num}
+          </a>
+        );
+      }
+    },
+    {
+      field: 'emailAddress',
+      headerName: 'Email Address',
+      minWidth: 190,
+      cellRenderer: (params) => {
+        const email = params.value;
+        if (!email) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        return (
+          <a href={`mailto:${email}`} style={{ color: 'var(--primary-600)', textDecoration: 'none' }}>
+            {email}
+          </a>
+        );
+      }
+    },
+    {
+      field: 'joiningDate',
+      headerName: 'Joining Date',
+      type: 'date',
+      minWidth: 130
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      minWidth: 120,
+      cellRenderer: (params) => {
+        const val = params.value || 'Active';
+        const isActive = val === 'Active';
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '2px 10px',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.15)',
+            color: isActive ? '#059669' : '#64748b'
+          }}>
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: isActive ? '#10b981' : '#94a3b8'
+            }} />
+            {val}
+          </span>
+        );
+      }
+    },
+    {
+      colId: 'actions',
+      headerName: 'Actions',
+      pinned: 'right',
+      width: 105,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        const emp = params.data;
+        if (!emp) return null;
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '100%' }}>
+            <button
+              id={`ag-edit-emp-${emp._id || params.rowIndex}`}
+              onClick={() => handleOpenEdit(emp)}
+              className="btn-icon"
+              style={{
+                padding: '5px 8px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-main)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--primary-700)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Edit Employee"
+            >
+              <Edit size={14} />
+            </button>
+            <button
+              id={`ag-del-emp-${emp._id || params.rowIndex}`}
+              onClick={() => setDeleteConfirmId(emp._id)}
+              className="btn-icon"
+              style={{
+                padding: '5px 8px',
+                borderRadius: '6px',
+                backgroundColor: '#fff1f2',
+                border: '1px solid #fecdd3',
+                color: '#e11d48',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Delete Employee"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        );
+      }
+    }
+  ], []);
+
   // KPI Metrics
   const totalCount = employees.length;
   const activeCount = employees.filter(e => e.status === 'Active').length;
@@ -337,7 +537,67 @@ export default function EmployeesPage({ showToast }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* View Mode Toggle: AG Grid vs Standard */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--bg-main)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '10px',
+            padding: '3px',
+            gap: '3px'
+          }}>
+            <button
+              id="view-toggle-aggrid"
+              type="button"
+              onClick={() => setViewMode('aggrid')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to AG Grid Enterprise Ready Data Grid"
+            >
+              <LayoutGrid size={14} />
+              <span>AG Grid (Advanced)</span>
+            </button>
+            <button
+              id="view-toggle-standard"
+              type="button"
+              onClick={() => setViewMode('standard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to Standard Table View"
+            >
+              <Table size={14} />
+              <span>Standard Table</span>
+            </button>
+          </div>
+
           <button
             id="refresh-employees-btn"
             onClick={fetchData}
@@ -469,8 +729,30 @@ export default function EmployeesPage({ showToast }) {
         </div>
       </div>
 
-      {/* Search and Filters Toolstrip */}
-      <div className="card" style={{ padding: '14px 18px', marginBottom: '20px' }}>
+      {/* View Mode Content: Advanced AG Grid vs Standard Table */}
+      {viewMode === 'aggrid' ? (
+        <AdvancedDataGrid
+          gridId="crm_employees_grid"
+          title="Employee Personnel Directory"
+          subtitle="Staff directory with columns manager, multi-filters, formatters, chart visualizer, pivoting, and reporting"
+          rowData={employees}
+          columnDefs={agGridColumnDefs}
+          isLoading={isLoading}
+          onRefresh={fetchData}
+          currentUser={currentUser?.email || currentUser?.username || 'admin'}
+          showToast={showToast}
+          exportFilename="Employees_Directory"
+          defaultPageSize={25}
+          primaryAction={{
+            label: 'Add Employee',
+            onClick: handleOpenCreate,
+            id: 'ag-primary-add-employee'
+          }}
+        />
+      ) : (
+        <>
+          {/* Search and Filters Toolstrip */}
+          <div className="card" style={{ padding: '14px 18px', marginBottom: '20px' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -848,6 +1130,8 @@ export default function EmployeesPage({ showToast }) {
           </table>
         </div>
       </div>
+        </>
+      )}
 
       {/* Modal Form for Create & Edit matching the screenshot sections precisely */}
       {isModalOpen && (

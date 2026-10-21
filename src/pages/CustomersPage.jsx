@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
   Users,
@@ -21,12 +21,15 @@ import {
   Filter,
   Sparkles,
   PhoneCall,
-  Mail
+  Mail,
+  LayoutGrid,
+  Table
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
+import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
 
 const CUSTOMER_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -71,7 +74,8 @@ const LEAD_SOURCES = [
 const CUSTOMER_TYPES = ['Existing Customer', 'Prospect'];
 const STATUS_OPTIONS = ['Active', 'Inactive'];
 
-export default function CustomersPage({ showToast }) {
+export default function CustomersPage({ showToast, currentUser }) {
+  const [viewMode, setViewMode] = useState('aggrid'); // 'aggrid' | 'standard'
   const {
     columns: customerColumns,
     visibleColumns: visibleCustCols,
@@ -298,6 +302,210 @@ export default function CustomersPage({ showToast }) {
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  // AG Grid Column Definitions
+  const agGridColumnDefs = useMemo(() => [
+    {
+      colId: 'index',
+      headerName: '#',
+      valueGetter: (params) => (params.node && typeof params.node.rowIndex === 'number' ? params.node.rowIndex + 1 : 1),
+      width: 65,
+      maxWidth: 75,
+      pinned: 'left',
+      sortable: false,
+      filter: false
+    },
+    {
+      field: 'organizationName',
+      headerName: 'Customer Organization Name',
+      flex: 1.5,
+      minWidth: 230,
+      cellRenderer: (params) => {
+        const cust = params.data;
+        if (!cust) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                {cust.organizationName}
+              </span>
+              {cust.websiteUrl && (
+                <a
+                  href={cust.websiteUrl.startsWith('http') ? cust.websiteUrl : `https://${cust.websiteUrl}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: 'var(--primary-600)', display: 'inline-flex', alignItems: 'center' }}
+                  title={`Visit ${cust.websiteUrl}`}
+                >
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+            {cust.customerCode && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: '2px' }}>
+                {cust.customerCode}
+              </div>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      field: 'customerType',
+      headerName: 'Customer Type',
+      minWidth: 150,
+      cellRenderer: (params) => {
+        const val = params.value;
+        const isExisting = val === 'Existing Customer';
+        return (
+          <span style={{
+            display: 'inline-block',
+            padding: '2px 10px',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            backgroundColor: isExisting ? '#ecfdf5' : '#eff6ff',
+            color: isExisting ? '#059669' : '#2563eb',
+            border: `1px solid ${isExisting ? '#a7f3d0' : '#bfdbfe'}`
+          }}>
+            {val || '—'}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'industrySegment',
+      headerName: 'Industry Segment',
+      minWidth: 160
+    },
+    {
+      field: 'primaryContactPerson',
+      headerName: 'Primary Contact',
+      minWidth: 160
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 190,
+      cellRenderer: (params) => {
+        const email = params.value;
+        if (!email) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        return (
+          <a
+            href={`mailto:${email}`}
+            style={{ color: 'var(--primary-600)', textDecoration: 'none' }}
+          >
+            {email}
+          </a>
+        );
+      }
+    },
+    {
+      field: 'city',
+      headerName: 'City',
+      minWidth: 120
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 120
+    },
+    {
+      field: 'leadSource',
+      headerName: 'Lead Source',
+      minWidth: 140
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      minWidth: 120,
+      cellRenderer: (params) => {
+        const val = params.value || 'Active';
+        const isActive = val === 'Active';
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '2px 10px',
+            borderRadius: '20px',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148, 163, 184, 0.15)',
+            color: isActive ? '#059669' : '#64748b'
+          }}>
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: isActive ? '#10b981' : '#94a3b8'
+            }} />
+            {val}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Created Date',
+      type: 'date',
+      minWidth: 130
+    },
+    {
+      colId: 'actions',
+      headerName: 'Actions',
+      pinned: 'right',
+      width: 105,
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        const cust = params.data;
+        if (!cust) return null;
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '100%' }}>
+            <button
+              id={`ag-edit-cust-${cust._id || params.rowIndex}`}
+              onClick={() => handleOpenEdit(cust)}
+              className="btn-icon"
+              style={{
+                padding: '5px 8px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-main)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--primary-700)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Edit Customer"
+            >
+              <Edit size={14} />
+            </button>
+            <button
+              id={`ag-del-cust-${cust._id || params.rowIndex}`}
+              onClick={() => setDeleteConfirmId(cust._id)}
+              className="btn-icon"
+              style={{
+                padding: '5px 8px',
+                borderRadius: '6px',
+                backgroundColor: '#fff1f2',
+                border: '1px solid #fecdd3',
+                color: '#e11d48',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Delete Customer"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        );
+      }
+    }
+  ], []);
+
   // KPI Metrics
   const totalCount = customers.length;
   const existingCount = customers.filter(c => c.customerType === 'Existing Customer').length;
@@ -341,7 +549,67 @@ export default function CustomersPage({ showToast }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* View Mode Toggle: AG Grid vs Standard */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--bg-main)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '10px',
+            padding: '3px',
+            gap: '3px'
+          }}>
+            <button
+              id="view-toggle-aggrid"
+              type="button"
+              onClick={() => setViewMode('aggrid')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to AG Grid Enterprise Ready Data Grid"
+            >
+              <LayoutGrid size={14} />
+              <span>AG Grid (Advanced)</span>
+            </button>
+            <button
+              id="view-toggle-standard"
+              type="button"
+              onClick={() => setViewMode('standard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to Standard Table View"
+            >
+              <Table size={14} />
+              <span>Standard Table</span>
+            </button>
+          </div>
+
           <button
             id="refresh-customers-btn"
             onClick={fetchData}
@@ -473,8 +741,30 @@ export default function CustomersPage({ showToast }) {
         </div>
       </div>
 
-      {/* Search and Filters Toolstrip */}
-      <div className="card" style={{ padding: '14px 18px', marginBottom: '20px' }}>
+      {/* View Mode Content: Advanced AG Grid vs Standard Table */}
+      {viewMode === 'aggrid' ? (
+        <AdvancedDataGrid
+          gridId="crm_customers_directory"
+          title="Customer Accounts Directory"
+          subtitle="Enterprise data grid with columns manager, multi-filters, formatters, chart visualizer, pivoting, and reporting"
+          rowData={customers}
+          columnDefs={agGridColumnDefs}
+          isLoading={isLoading}
+          onRefresh={fetchData}
+          currentUser={currentUser?.email || currentUser?.username || 'admin'}
+          showToast={showToast}
+          exportFilename="Customers_Directory"
+          defaultPageSize={25}
+          primaryAction={{
+            label: 'Add Customer',
+            onClick: handleOpenCreate,
+            id: 'ag-primary-add-cust'
+          }}
+        />
+      ) : (
+        <>
+          {/* Search and Filters Toolstrip */}
+          <div className="card" style={{ padding: '14px 18px', marginBottom: '20px' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -843,6 +1133,8 @@ export default function CustomersPage({ showToast }) {
           </table>
         </div>
       </div>
+        </>
+      )}
 
       {/* Modal Form for Create & Edit */}
       {isModalOpen && (

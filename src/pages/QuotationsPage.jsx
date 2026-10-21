@@ -34,9 +34,12 @@ import {
   Download,
   Share2,
   CheckSquare,
-  Mail
+  Mail,
+  LayoutGrid,
+  Table
 } from 'lucide-react';
 import { api } from '../services/api';
+import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
@@ -225,6 +228,7 @@ export default function QuotationsPage({
   const [quotations, setQuotations] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('aggrid');
 
   // Master Dependencies for Section 1 & Section 2
   const [opportunities, setOpportunities] = useState([]);
@@ -911,6 +915,317 @@ export default function QuotationsPage({
       maximumFractionDigits: 0
     }).format(Number(val) || 0);
   };
+
+  // AG Grid Column Definitions
+  const agGridColumnDefs = useMemo(() => [
+    {
+      colId: 'index',
+      headerName: '#',
+      valueGetter: (params) => (params.node && typeof params.node.rowIndex === 'number' ? params.node.rowIndex + 1 : 1),
+      width: 65,
+      maxWidth: 75,
+      pinned: 'left',
+      sortable: false,
+      filter: false
+    },
+    {
+      field: 'quotationNumber',
+      headerName: 'Quotation # & Revision',
+      flex: 1.3,
+      minWidth: 190,
+      cellRenderer: (params) => {
+        const q = params.data;
+        if (!q) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '100%' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>
+              {q.quotationNumber}
+            </span>
+            <span style={{
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '2px 7px',
+              borderRadius: '4px',
+              backgroundColor: Number(q.revisionNumber) > 0 ? 'rgba(59, 130, 246, 0.12)' : 'rgba(100, 116, 139, 0.12)',
+              color: Number(q.revisionNumber) > 0 ? '#3b82f6' : '#64748b',
+              border: Number(q.revisionNumber) > 0 ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(100, 116, 139, 0.25)'
+            }}>
+              Rev {q.revisionNumber ?? 0}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'opportunityName',
+      headerName: 'Opportunity & Client',
+      flex: 1.4,
+      minWidth: 220,
+      cellRenderer: (params) => {
+        const q = params.data;
+        if (!q) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
+            <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem' }}>
+              {q.opportunityName || q.customerClient}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {q.opportunityCode ? `Opp: ${q.opportunityCode}` : q.customerClient}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'customerClient',
+      headerName: 'Customer / Client',
+      flex: 1.2,
+      minWidth: 180,
+      cellRenderer: (params) => {
+        const q = params.data;
+        if (!q) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+            <Building2 size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.82rem' }}>
+              {q.customerClient || '—'}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'contactPersonName',
+      headerName: 'Contact Person',
+      flex: 1,
+      minWidth: 150,
+      cellRenderer: (params) => {
+        const q = params.data;
+        if (!q) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+            <User size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>
+              {q.contactPersonName || '—'}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'salesRepresentative',
+      headerName: 'Sales Rep',
+      flex: 1,
+      minWidth: 150,
+      cellRenderer: (params) => {
+        const q = params.data;
+        if (!q) return null;
+        return (
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 500 }}>
+            {q.salesRepresentative || '—'}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'validityDays',
+      headerName: 'Validity',
+      width: 120,
+      cellRenderer: (params) => {
+        const val = params.value;
+        if (!val) return '30 Days';
+        return `${val} Days`;
+      }
+    },
+    {
+      field: 'grossSubtotal',
+      headerName: 'Gross Subtotal',
+      width: 140,
+      type: 'numericColumn',
+      valueFormatter: (params) => formatINR(params.value)
+    },
+    {
+      field: 'discountAmount',
+      headerName: 'Discount',
+      width: 140,
+      type: 'numericColumn',
+      cellRenderer: (params) => {
+        const q = params.data;
+        if (!q) return null;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', height: '100%', lineHeight: '1.2' }}>
+            <span style={{ color: '#f59e0b', fontWeight: 600, fontSize: '0.82rem' }}>
+              -{formatINR(q.discountAmount)}
+            </span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              ({q.discountPercent || 0}%)
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'gstAmount',
+      headerName: 'GST (18%)',
+      width: 130,
+      type: 'numericColumn',
+      valueFormatter: (params) => formatINR(params.value)
+    },
+    {
+      field: 'grandTotal',
+      headerName: 'Grand Total',
+      width: 160,
+      type: 'numericColumn',
+      cellRenderer: (params) => {
+        return (
+          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#10b981' }}>
+            {formatINR(params.value)}
+          </span>
+        );
+      }
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 180,
+      cellRenderer: (params) => {
+        const st = params.value || 'DRAFT';
+        const badge = STATUS_BADGES[st] || STATUS_BADGES['DRAFT'];
+        const IconComponent = badge.icon || Clock;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              backgroundColor: badge.bg,
+              color: badge.text,
+              border: `1px solid ${badge.border}`
+            }}>
+              <IconComponent size={12} />
+              <span>{st}</span>
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Created Date',
+      width: 130,
+      valueFormatter: (params) => formatQuoteDate(params.value)
+    },
+    {
+      colId: 'actions',
+      headerName: 'Actions',
+      width: 220,
+      pinned: 'right',
+      sortable: false,
+      filter: false,
+      cellRenderer: (params) => {
+        const quote = params.data;
+        if (!quote) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+            <button
+              type="button"
+              onClick={() => handleOpenPreview(quote)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title="View & Print Formal Proforma Quotation"
+            >
+              <Eye size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenReportModal('SELECTED', quote)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                color: '#10b981',
+                cursor: 'pointer'
+              }}
+              title="Generate & Print Official Quotation Report"
+            >
+              <Printer size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleInitiateSendEmail(quote)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                color: '#f59e0b',
+                cursor: 'pointer'
+              }}
+              title="Email Quotation to Client"
+            >
+              <Send size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenRevisionModal(quote)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                color: '#3b82f6',
+                cursor: 'pointer'
+              }}
+              title="Create New Revision (Rev +1)"
+            >
+              <Copy size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenEditModal(quote)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                cursor: 'pointer'
+              }}
+              title="Edit Quotation Details"
+            >
+              <Edit3 size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDelete(quote._id, quote.quotationNumber)}
+              style={{
+                padding: '5px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                color: '#ef4444',
+                cursor: 'pointer'
+              }}
+              title="Delete Quotation"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        );
+      }
+    }
+  ], [quotations]);
 
   // Unique lists for report dropdown filters
   const uniqueReportCustomers = useMemo(() => {
@@ -1958,8 +2273,67 @@ export default function QuotationsPage({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Action Buttons & View Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* View Mode Toggle: AG Grid vs Standard View */}
+          <div style={{
+            display: 'inline-flex',
+            backgroundColor: 'var(--bg-card)',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
+            gap: '3px'
+          }}>
+            <button
+              id="view-toggle-aggrid"
+              type="button"
+              onClick={() => setViewMode('aggrid')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to AG Grid Enterprise Ready Data Grid"
+            >
+              <LayoutGrid size={14} />
+              <span>AG Grid (Advanced)</span>
+            </button>
+            <button
+              id="view-toggle-standard"
+              type="button"
+              onClick={() => setViewMode('standard')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
+                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
+                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Switch to Standard Table View"
+            >
+              <Table size={14} />
+              <span>Standard Table</span>
+            </button>
+          </div>
+
           <button
             onClick={fetchQuotations}
             disabled={loading}
@@ -2174,8 +2548,30 @@ export default function QuotationsPage({
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="card" style={{
+      {/* View Mode Content: Advanced AG Grid vs Standard Table */}
+      {viewMode === 'aggrid' ? (
+        <AdvancedDataGrid
+          gridId="crm_quotations_directory"
+          title="Quotations & Commercial Proposals"
+          subtitle="Enterprise commercial data grid with revision control, 18% GST calculation, line-items, and Excel/PDF export"
+          rowData={quotations}
+          columnDefs={agGridColumnDefs}
+          isLoading={loading}
+          onRefresh={fetchQuotations}
+          currentUser={currentUser?.email || currentUser?.username || 'admin'}
+          showToast={showToast}
+          exportFilename="Quotations_Register"
+          defaultPageSize={25}
+          primaryAction={{
+            label: 'New Quotation',
+            onClick: handleOpenCreateModal,
+            id: 'ag-primary-add-quote'
+          }}
+        />
+      ) : (
+        <>
+          {/* Filter & Search Bar */}
+          <div className="card" style={{
         padding: '16px 20px',
         borderRadius: 'var(--radius-lg)',
         marginBottom: '20px',
@@ -2891,6 +3287,8 @@ export default function QuotationsPage({
           </div>
         )}
       </div>
+        </>
+      )}
       </div>
 
       {/* ========================================================================= */}
