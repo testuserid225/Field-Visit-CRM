@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
+import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
@@ -685,16 +686,18 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
       field: 'reportNumber',
       headerName: 'Report # & Date',
       flex: 1.3,
-      minWidth: 190,
+      minWidth: 195,
       cellRenderer: (params) => {
         const r = params.data;
         if (!r) return null;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
-            <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.85rem' }}>
-              {r.reportNumber}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+            <div>
+              <span className="crm-code-pill" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                {r.reportNumber}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
               <Calendar size={11} />
               <span>{r.visitDate ? String(r.visitDate).split('T')[0] : ''}</span>
               {r.startTime && <span>• {r.startTime} - {r.endTime}</span>}
@@ -883,18 +886,11 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
         const report = params.data;
         if (!report) return null;
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '100%' }}>
             <button
               type="button"
               onClick={() => handleOpenPreview(report)}
-              style={{
-                padding: '5px 7px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                backgroundColor: 'var(--bg-card)',
-                color: 'var(--text-main)',
-                cursor: 'pointer'
-              }}
+              className="crm-action-icon-btn btn-view"
               title="View & Print Official Claim Sheet"
             >
               <Eye size={13} />
@@ -902,14 +898,7 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
             <button
               type="button"
               onClick={() => handleOpenEditModal(report)}
-              style={{
-                padding: '5px 7px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                backgroundColor: 'var(--bg-card)',
-                color: 'var(--text-main)',
-                cursor: 'pointer'
-              }}
+              className="crm-action-icon-btn btn-edit"
               title="Edit Report & Expenses"
             >
               <Edit3 size={13} />
@@ -917,14 +906,7 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
             <button
               type="button"
               onClick={() => handleDeleteReport(report._id, report.reportNumber)}
-              style={{
-                padding: '5px 7px',
-                borderRadius: '6px',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                color: '#ef4444',
-                cursor: 'pointer'
-              }}
+              className="crm-action-icon-btn btn-delete"
               title="Delete Report"
             >
               <Trash2 size={13} />
@@ -983,63 +965,7 @@ export default function DailyVisitExpensesPage({ showToast, currentUser, initial
         {/* Action Buttons & View Mode Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* View Mode Toggle: AG Grid vs Standard View */}
-          <div style={{
-            display: 'inline-flex',
-            backgroundColor: 'var(--bg-card)',
-            padding: '3px',
-            borderRadius: '10px',
-            border: '1px solid var(--border-subtle)',
-            gap: '3px'
-          }}>
-            <button
-              id="view-toggle-aggrid"
-              type="button"
-              onClick={() => setViewMode('aggrid')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to AG Grid Enterprise Ready Data Grid"
-            >
-              <LayoutGrid size={14} />
-              <span>AG Grid (Advanced)</span>
-            </button>
-            <button
-              id="view-toggle-standard"
-              type="button"
-              onClick={() => setViewMode('standard')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to Standard Table View"
-            >
-              <Table size={14} />
-              <span>Standard Table</span>
-            </button>
-          </div>
+          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
 
           <button
             onClick={fetchReports}

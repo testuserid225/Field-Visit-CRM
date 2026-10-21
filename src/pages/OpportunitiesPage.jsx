@@ -44,6 +44,13 @@ import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
+import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
+
+const OPPORTUNITY_VIEW_OPTIONS = [
+  { id: 'aggrid', label: 'AG Grid', icon: LayoutGrid, badge: 'PRO' },
+  { id: 'list', label: 'Data List', icon: List },
+  { id: 'kanban', label: 'Kanban Board', icon: Layers }
+];
 
 const OPPORTUNITY_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -619,12 +626,14 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations, cur
         if (!opp) return null;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
-            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.86rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
               {opp.title || opp.opportunityName}
             </span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--primary-600)', fontFamily: 'monospace' }}>
-              {opp.opportunityCode}
-            </span>
+            {opp.opportunityCode && (
+              <div style={{ marginTop: '2px' }}>
+                <span className="crm-code-pill">{opp.opportunityCode}</span>
+              </div>
+            )}
           </div>
         );
       }
@@ -656,7 +665,16 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations, cur
       headerName: 'Deal Value (₹)',
       type: 'currency',
       minWidth: 150,
-      valueFormatter: (params) => `₹ ${Number(params.value || 0).toLocaleString('en-IN')}`
+      cellRenderer: (params) => {
+        const val = Number(params.value || 0);
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+            <span style={{ fontWeight: 700, color: 'var(--primary-700)', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }}>
+              ₹ {val.toLocaleString('en-IN')}
+            </span>
+          </div>
+        );
+      }
     },
     {
       field: 'stage',
@@ -715,24 +733,21 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations, cur
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '100%' }}>
             <button
               onClick={() => setViewDetailsOpp(opp)}
-              className="btn-icon"
-              style={{ padding: '5px 7px', borderRadius: '6px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+              className="crm-action-icon-btn btn-view"
               title="View Details"
             >
               <Eye size={13} />
             </button>
             <button
               onClick={() => handleOpenEditModal(opp)}
-              className="btn-icon"
-              style={{ padding: '5px 7px', borderRadius: '6px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-subtle)', color: 'var(--primary-700)', cursor: 'pointer' }}
+              className="crm-action-icon-btn btn-edit"
               title="Edit Opportunity"
             >
               <Edit3 size={13} />
             </button>
             <button
               onClick={() => handleDeleteOpportunity(opp)}
-              className="btn-icon"
-              style={{ padding: '5px 7px', borderRadius: '6px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', color: '#e11d48', cursor: 'pointer' }}
+              className="crm-action-icon-btn btn-delete"
               title="Delete Opportunity"
             >
               <Trash2 size={13} />
@@ -1139,82 +1154,7 @@ export default function OpportunitiesPage({ showToast, onNavigateQuotations, cur
             />
 
             {/* View Mode Toggle: AG Grid vs Table View vs Kanban */}
-            <div style={{
-              display: 'flex',
-              backgroundColor: 'var(--bg-main)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '20px',
-              padding: '2px',
-              gap: '2px'
-            }}>
-              <button
-                id="view-mode-aggrid-btn"
-                type="button"
-                onClick={() => setViewMode('aggrid')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 14px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  borderRadius: '16px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
-                  color: viewMode === 'aggrid' ? '#fff' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease'
-                }}
-                title="Switch to AG Grid Enterprise Ready Data Grid"
-              >
-                <LayoutGrid size={14} />
-                <span>AG Grid (Advanced)</span>
-              </button>
-              <button
-                id="view-mode-table-btn"
-                type="button"
-                onClick={() => setViewMode('list')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 14px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  borderRadius: '16px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: viewMode === 'list' ? 'var(--primary-600)' : 'transparent',
-                  color: viewMode === 'list' ? '#fff' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <List size={14} />
-                <span>Data List</span>
-              </button>
-              <button
-                id="view-mode-kanban-btn"
-                type="button"
-                onClick={() => setViewMode('kanban')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 14px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  borderRadius: '16px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: viewMode === 'kanban' ? 'var(--primary-600)' : 'transparent',
-                  color: viewMode === 'kanban' ? '#fff' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <Layers size={14} />
-                <span>Kanban Board</span>
-              </button>
-            </div>
+            <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} options={OPPORTUNITY_VIEW_OPTIONS} />
           </div>
         </div>
       </div>

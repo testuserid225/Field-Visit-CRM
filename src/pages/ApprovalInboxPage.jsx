@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
+import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 import { isBranchManager, isSystemAdmin, getUserBranch } from '../utils/userRoleUtils';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
@@ -288,16 +289,18 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
       field: 'reportNumber',
       headerName: 'Report # & Date',
       flex: 1.3,
-      minWidth: 190,
+      minWidth: 195,
       cellRenderer: (params) => {
         const r = params.data;
         if (!r) return null;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
-            <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.85rem' }}>
-              {r.reportNumber}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+            <div>
+              <span className="crm-code-pill" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                {r.reportNumber}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
               <Calendar size={11} />
               <span>{r.visitDate ? String(r.visitDate).split('T')[0] : ''}</span>
               {r.startTime && <span>• {r.startTime}</span>}
@@ -310,18 +313,24 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
       field: 'employeeName',
       headerName: 'Employee',
       flex: 1.2,
-      minWidth: 170,
+      minWidth: 190,
       cellRenderer: (params) => {
         const r = params.data;
         if (!r) return null;
+        const initials = (r.employeeName || 'E').trim().substring(0, 2).toUpperCase();
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
-            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem' }}>
-              {r.employeeName}
-            </span>
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              {r.department} {r.branch ? `• ${r.branch}` : ''}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '100%' }}>
+            <div className="crm-avatar-initials" style={{ width: '30px', height: '30px', fontSize: '0.74rem', flexShrink: 0 }}>
+              {initials}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: '1.25', overflow: 'hidden' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.84rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {r.employeeName}
+              </span>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                {r.department} {r.branch ? `• ${r.branch}` : ''}
+              </span>
+            </div>
           </div>
         );
       }
@@ -619,63 +628,7 @@ export default function ApprovalInboxPage({ showToast, currentUser, onNavigate }
           )}
 
           {/* View Mode Toggle: AG Grid vs Standard View */}
-          <div style={{
-            display: 'inline-flex',
-            backgroundColor: 'var(--bg-main)',
-            padding: '3px',
-            borderRadius: '10px',
-            border: '1px solid var(--border-subtle)',
-            gap: '3px'
-          }}>
-            <button
-              id="view-toggle-aggrid"
-              type="button"
-              onClick={() => setViewMode('aggrid')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to AG Grid Enterprise Ready Data Grid"
-            >
-              <LayoutGrid size={14} />
-              <span>AG Grid (Advanced)</span>
-            </button>
-            <button
-              id="view-toggle-standard"
-              type="button"
-              onClick={() => setViewMode('standard')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to Standard Table View"
-            >
-              <Table size={14} />
-              <span>Standard Table</span>
-            </button>
-          </div>
+          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
 
           {/* Manual Refresh Button */}
           <button

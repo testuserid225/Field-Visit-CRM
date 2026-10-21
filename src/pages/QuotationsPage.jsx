@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
+import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
@@ -932,13 +933,13 @@ export default function QuotationsPage({
       field: 'quotationNumber',
       headerName: 'Quotation # & Revision',
       flex: 1.3,
-      minWidth: 190,
+      minWidth: 195,
       cellRenderer: (params) => {
         const q = params.data;
         if (!q) return null;
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '100%' }}>
-            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>
+            <span className="crm-code-pill" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
               {q.quotationNumber}
             </span>
             <span style={{
@@ -2276,63 +2277,7 @@ export default function QuotationsPage({
         {/* Action Buttons & View Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* View Mode Toggle: AG Grid vs Standard View */}
-          <div style={{
-            display: 'inline-flex',
-            backgroundColor: 'var(--bg-card)',
-            padding: '3px',
-            borderRadius: '10px',
-            border: '1px solid var(--border-subtle)',
-            gap: '3px'
-          }}>
-            <button
-              id="view-toggle-aggrid"
-              type="button"
-              onClick={() => setViewMode('aggrid')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to AG Grid Enterprise Ready Data Grid"
-            >
-              <LayoutGrid size={14} />
-              <span>AG Grid (Advanced)</span>
-            </button>
-            <button
-              id="view-toggle-standard"
-              type="button"
-              onClick={() => setViewMode('standard')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to Standard Table View"
-            >
-              <Table size={14} />
-              <span>Standard Table</span>
-            </button>
-          </div>
+          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
 
           <button
             onClick={fetchQuotations}

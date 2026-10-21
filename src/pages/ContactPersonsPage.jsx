@@ -28,6 +28,7 @@ import useColumnVisibility from '../hooks/useColumnVisibility';
 import ColumnVisibilityDropdown from '../components/ColumnVisibilityDropdown';
 import ExportExcelButton from '../components/ExportExcelButton';
 import AdvancedDataGrid from '../components/grid/AdvancedDataGrid';
+import ViewModeSwitcher from '../components/grid/ViewModeSwitcher';
 
 const CONTACT_PERSON_EXPORT_COLUMNS = [
   { key: 'index', label: 'S.No' },
@@ -273,20 +274,26 @@ export default function ContactPersonsPage({ showToast, currentUser }) {
       field: 'name',
       headerName: 'Contact Person Name',
       flex: 1.2,
-      minWidth: 190,
+      minWidth: 200,
       cellRenderer: (params) => {
         const contact = params.data;
         if (!contact) return null;
+        const initials = (contact.name || 'C').trim().substring(0, 2).toUpperCase();
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: '1.25' }}>
-            <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.875rem' }}>
-              {contact.name}
-            </span>
-            {contact.designation && (
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                {contact.designation}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', height: '100%' }}>
+            <div className="crm-avatar-initials" style={{ width: '32px', height: '32px', fontSize: '0.75rem', flexShrink: 0 }}>
+              {initials}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: '1.25', overflow: 'hidden' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.86rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {contact.name}
               </span>
-            )}
+              {contact.designation && (
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {contact.designation}
+                </span>
+              )}
+            </div>
           </div>
         );
       }
@@ -353,23 +360,8 @@ export default function ContactPersonsPage({ showToast, currentUser }) {
         const val = params.value || 'Active';
         const isActive = val === 'Active';
         return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '2px 10px',
-            borderRadius: '20px',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(225, 29, 72, 0.12)',
-            color: isActive ? '#059669' : '#e11d48'
-          }}>
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: isActive ? '#10b981' : '#e11d48'
-            }} />
+          <span className={`crm-status-pill ${isActive ? 'status-active' : 'status-inactive'}`}>
+            <span className="status-dot" />
             {val}
           </span>
         );
@@ -386,44 +378,22 @@ export default function ContactPersonsPage({ showToast, currentUser }) {
         const contact = params.data;
         if (!contact) return null;
         return (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '100%' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', height: '100%' }}>
             <button
               id={`ag-edit-contact-${contact._id || params.rowIndex}`}
               onClick={() => handleOpenEdit(contact)}
-              className="btn-icon"
-              style={{
-                padding: '5px 8px',
-                borderRadius: '6px',
-                backgroundColor: 'var(--bg-main)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--primary-700)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="crm-action-icon-btn btn-edit"
               title="Edit Contact Person"
             >
-              <Edit size={14} />
+              <Edit size={13} />
             </button>
             <button
               id={`ag-del-contact-${contact._id || params.rowIndex}`}
               onClick={() => setDeleteConfirmId(contact._id)}
-              className="btn-icon"
-              style={{
-                padding: '5px 8px',
-                borderRadius: '6px',
-                backgroundColor: '#fff1f2',
-                border: '1px solid #fecdd3',
-                color: '#e11d48',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="crm-action-icon-btn btn-delete"
               title="Delete Contact Person"
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
             </button>
           </div>
         );
@@ -475,64 +445,7 @@ export default function ContactPersonsPage({ showToast, currentUser }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* View Mode Toggle: AG Grid vs Standard */}
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            backgroundColor: 'var(--bg-main)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '10px',
-            padding: '3px',
-            gap: '3px'
-          }}>
-            <button
-              id="view-toggle-aggrid"
-              type="button"
-              onClick={() => setViewMode('aggrid')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'aggrid' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'aggrid' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'aggrid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to AG Grid Enterprise Ready Data Grid"
-            >
-              <LayoutGrid size={14} />
-              <span>AG Grid (Advanced)</span>
-            </button>
-            <button
-              id="view-toggle-standard"
-              type="button"
-              onClick={() => setViewMode('standard')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                backgroundColor: viewMode === 'standard' ? 'var(--primary-600)' : 'transparent',
-                color: viewMode === 'standard' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: viewMode === 'standard' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease'
-              }}
-              title="Switch to Standard Table View"
-            >
-              <Table size={14} />
-              <span>Standard Table</span>
-            </button>
-          </div>
+          <ViewModeSwitcher viewMode={viewMode} onChange={setViewMode} />
 
           <button
             id="refresh-contacts-btn"

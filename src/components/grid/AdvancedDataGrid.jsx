@@ -468,7 +468,7 @@ export default function AdvancedDataGrid({
       />
 
       {/* Main Grid Viewport */}
-      <div style={{ position: 'relative', width: '100%', minHeight: '440px', height: '560px' }}>
+      <div style={{ position: 'relative', width: '100%', minHeight: '520px', height: '620px' }}>
         {isLoading ? (
           <div style={{
             position: 'absolute',
@@ -477,13 +477,13 @@ export default function AdvancedDataGrid({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.75)',
-            backdropFilter: 'blur(3px)',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(4px)',
             zIndex: 10,
             gap: '12px'
           }}>
-            <Loader2 size={34} color="var(--primary-600)" className="animate-spin" />
-            <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-main)' }}>
+            <Loader2 size={36} color="var(--primary-600)" className="animate-spin" />
+            <span style={{ fontWeight: 750, fontSize: '0.875rem', color: 'var(--text-main)', letterSpacing: '0.01em' }}>
               Loading Grid Records...
             </span>
           </div>
@@ -494,21 +494,42 @@ export default function AdvancedDataGrid({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '40px',
+            padding: '50px 20px',
             color: 'var(--text-muted)',
-            gap: '10px'
+            gap: '12px'
           }}>
-            <Inbox size={42} color="var(--border-strong)" />
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              backgroundColor: 'var(--bg-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-muted)'
+            }}>
+              <Inbox size={32} />
+            </div>
+            <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>
               No Matching Records Found
             </div>
-            <div style={{ fontSize: '0.8125rem', maxWidth: '340px', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.8125rem', maxWidth: '360px', textAlign: 'center', lineHeight: 1.5 }}>
               {quickSearch || activeFilters.length > 0 ? (
                 <span>Try clearing search keywords or active filters in the Actions toolbar.</span>
               ) : (
                 <span>No records available in this database view.</span>
               )}
             </div>
+            {(quickSearch || activeFilters.length > 0) && (
+              <button
+                type="button"
+                onClick={handleResetAll}
+                className="clear-all-filters-btn"
+                style={{ marginTop: '8px', fontSize: '0.8125rem' }}
+              >
+                Reset Search & Filters
+              </button>
+            )}
           </div>
         ) : (
           <div
@@ -530,6 +551,8 @@ export default function AdvancedDataGrid({
               animateRows={true}
               enableCellTextSelection={true}
               suppressMenuHide={true}
+              headerHeight={46}
+              rowHeight={52}
             />
           </div>
         )}
